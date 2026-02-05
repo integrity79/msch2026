@@ -4,137 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3월 특새 챌린지 - 카드 뒤집기</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 1. 기본 스타일 */
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background-color: #f0f4f8; /* 차분한 배경색 */
-            font-family: 'Pretendard', sans-serif;
-        }
+        /* 기존 스타일 유지 + 랭킹/입력창 스타일 추가 */
+        body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f4f8; font-family: 'Pretendard', sans-serif; }
+        .info-bar { margin-bottom: 20px; font-size: 1.5rem; font-weight: bold; color: #333; background: white; padding: 10px 30px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 20px; align-items: center; }
+        span#timer { color: #d32f2f; font-family: monospace; }
+        .btn-rank { background: #764ba2; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
+        .game-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 90%; max-width: 600px; perspective: 1000px; }
+        .card { background-color: transparent; aspect-ratio: 3 / 4; cursor: pointer; position: relative; transform-style: preserve-3d; transition: transform 0.5s; }
+        .card.flip { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; backface-visibility: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card-back { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; transform: rotateY(0deg); }
+        .card-back::after { content: "?"; opacity: 0.5; }
+        .card-front { background-color: white; transform: rotateY(180deg); border: 2px solid #764ba2; }
 
-        /* 2. 상단 정보창 (타이머) */
-        .info-bar {
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #333;
-            background: white;
-            padding: 10px 30px;
-            border-radius: 50px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        span#timer {
-            color: #d32f2f; /* 강조색 */
-            font-family: monospace;
-        }
-
-        /* 3. 게임 보드 (5열 4행 그리드) */
-        .game-board {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr); /* 5열 */
-            gap: 10px;
-            width: 90%;
-            max-width: 600px;
-            perspective: 1000px; /* 3D 효과 원근감 */
-        }
-
-        /* 4. 카드 스타일 */
-        .card {
-            background-color: transparent;
-            aspect-ratio: 3 / 4; /* 카드 비율 */
-            cursor: pointer;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.5s;
-        }
-
-        /* 카드가 뒤집혔을 때 */
-        .card.flip {
-            transform: rotateY(180deg);
-        }
-
-        /* 카드 앞/뒷면 공통 */
-        .card-face {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            backface-visibility: hidden; /* 뒷면 숨김 */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        /* 카드 뒷면 (패턴) */
-        .card-back {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-size: 1.2rem;
-            transform: rotateY(0deg);
-        }
-        .card-back::after {
-            content: "?"; /* 뒷면 무늬 */
-            font-weight: bold;
-            opacity: 0.5;
-        }
-
-        /* 카드 앞면 (이모지/이미지) */
-        .card-front {
-            background-color: white;
-            transform: rotateY(180deg);
-            border: 2px solid #764ba2;
-        }
+        /* 모달창 (입력폼/랭킹) 스타일 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+        .modal { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal h2 { margin-top: 0; color: #764ba2; }
+        .input-group { margin: 15px 0; text-align: left; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .btn-submit { background: #d32f2f; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .rank-list { list-style: none; padding: 0; text-align: left; max-height: 300px; overflow-y: auto; }
+        .rank-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .rank-item:nth-child(1) { color: #d32f2f; font-weight: bold; } /* 1등 강조 */
+        .rank-name { font-weight: bold; }
+        .rank-score { font-family: monospace; }
+        .close-btn { background: #999; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div class="info-bar">
-        ⏱️ 소요 시간: <span id="timer">00.00</span>초
+        <div>⏱️ <span id="timer">00.00</span>초</div>
+        <button class="btn-rank" onclick="showRanking()">🏆 순위 보기</button>
     </div>
 
-    <div class="game-board" id="gameBoard">
+    <div class="game-board" id="gameBoard"></div>
+
+    <div class="modal-overlay" id="submitModal">
+        <div class="modal">
+            <h2>🎉 축하합니다!</h2>
+            <p>기록: <strong id="finalScore" style="color:#d32f2f; font-size:1.5rem;">00.00</strong>초</p>
+            <div class="input-group">
+                <label>이름</label>
+                <input type="text" id="userName" placeholder="예: 홍길동">
+            </div>
+            <div class="input-group">
+                <label>교구 (숫자만 입력)</label>
+                <input type="text" id="userParish" placeholder="예: 1">
+            </div>
+            <div class="input-group">
+                <label>연락처 (뒤 4자리)</label>
+                <input type="text" id="userPhone" placeholder="선물 증정용 확인">
+            </div>
+            <button class="btn-submit" onclick="submitScore()">기록 등록하기</button>
         </div>
+    </div>
+
+    <div class="modal-overlay" id="rankModal">
+        <div class="modal">
+            <h2>🏆 명예의 전당 (Top 10)</h2>
+            <ul class="rank-list" id="rankList">
+                <li>불러오는 중...</li>
+            </ul>
+            <button class="btn-submit close-btn" onclick="closeRankModal()">닫기</button>
+        </div>
+    </div>
 
     <script>
-        // 1. 게임 설정 데이터 (10쌍의 이모지)
-        // 나중에 교회 로고나 관련 이미지로 교체 가능합니다.
-        const cardIcons = [
-            '🙏', '🙏', // 기도
-            '📖', '📖', // 성경
-            '⛪', '⛪', // 교회
-            '🕊️', '🕊️', // 평화/비둘기
-            '❤️', '❤️', // 사랑
-            '🕯️', '🕯️', // 촛불
-            '🍞', '🍞', // 떡
-            '🍷', '🍷', // 잔
-            '🎁', '🎁', // 선물
-            '👑', '👑'  // 면류관
-        ];
+        // ==========================================
+        // ★ 여기를 꼭 수정해주세요! (Supabase 설정)
+        // ==========================================
+        const SUPABASE_URL = 'https://bjnualkexnjtugecouiv.supabase.co'; // 프로젝트 URL 붙여넣기
+        const SUPABASE_KEY = 'sb_publishable_lR1Qts8oi7ksXUhkOHo21Q_9img50Sn'; // API Key (anon) 붙여넣기
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // ==========================================
 
+        // 게임 변수
+        const cardIcons = ['🙏','🙏','📖','📖','⛪','⛪','🕊️','🕊️','❤️','❤️','🕯️','🕯️','🍞','🍞','🍷','🍷','🎁','🎁','👑','👑'];
         const board = document.getElementById('gameBoard');
         const timerElement = document.getElementById('timer');
-        
-        let cards = []; // 생성된 카드 요소들
-        let hasFlippedCard = false;
-        let lockBoard = false; // 카드 두 장 뒤집었을 때 클릭 방지
-        let firstCard, secondCard;
-        let matchCount = 0; // 찾은 짝 개수
-        
-        // 타이머 관련 변수
-        let startTime;
-        let timerInterval;
-        let isGameStarted = false;
+        let cards = [], hasFlippedCard = false, lockBoard = false;
+        let firstCard, secondCard, matchCount = 0;
+        let startTime, timerInterval, isGameStarted = false;
+        let currentScore = 0;
 
-        // 2. 카드 섞기 (Fisher-Yates Shuffle)
         function shuffle(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -143,101 +101,150 @@
             return array;
         }
 
-        // 3. 게임 초기화 및 보드 생성
         function initGame() {
-            const shuffledIcons = shuffle([...cardIcons]); // 배열 복사 후 섞기
+            board.innerHTML = ''; // 보드 초기화
+            matchCount = 0;
+            isGameStarted = false;
+            timerElement.innerText = "00.00";
+            clearInterval(timerInterval);
             
+            const shuffledIcons = shuffle([...cardIcons]);
             shuffledIcons.forEach(icon => {
-                // HTML 구조 생성
                 const card = document.createElement('div');
                 card.classList.add('card');
-                card.dataset.icon = icon; // 매칭 확인용 데이터
-
-                card.innerHTML = `
-                    <div class="card-face card-front">${icon}</div>
-                    <div class="card-face card-back"></div>
-                `;
-
+                card.dataset.icon = icon;
+                card.innerHTML = `<div class="card-face card-front">${icon}</div><div class="card-face card-back"></div>`;
                 card.addEventListener('click', flipCard);
                 board.appendChild(card);
             });
         }
 
-        // 4. 타이머 시작 함수
         function startTimer() {
             if (isGameStarted) return;
             isGameStarted = true;
             startTime = Date.now();
             timerInterval = setInterval(() => {
-                const elapsedTime = (Date.now() - startTime) / 1000;
-                timerElement.innerText = elapsedTime.toFixed(2);
+                currentScore = (Date.now() - startTime) / 1000;
+                timerElement.innerText = currentScore.toFixed(2);
             }, 10);
         }
 
-        // 5. 카드 뒤집기 로직
         function flipCard() {
-            if (!isGameStarted) startTimer(); // 첫 클릭 시 타이머 시작
+            if (!isGameStarted) startTimer();
             if (lockBoard) return;
-            if (this === firstCard) return; // 같은 카드 두 번 클릭 방지
+            if (this === firstCard) return;
 
             this.classList.add('flip');
 
             if (!hasFlippedCard) {
-                // 첫 번째 카드 클릭
                 hasFlippedCard = true;
                 firstCard = this;
                 return;
             }
-
-            // 두 번째 카드 클릭
             secondCard = this;
             checkForMatch();
         }
 
-        // 6. 매칭 확인 로직
         function checkForMatch() {
             let isMatch = firstCard.dataset.icon === secondCard.dataset.icon;
-
             isMatch ? disableCards() : unflipCards();
         }
 
-        // 매칭 성공 시
         function disableCards() {
             firstCard.removeEventListener('click', flipCard);
             secondCard.removeEventListener('click', flipCard);
-
             matchCount++;
             resetBoard();
 
-            // 게임 종료 체크 (10쌍 모두 찾음)
             if (matchCount === 10) {
                 clearInterval(timerInterval);
-                setTimeout(() => {
-                    alert(`🎉 축하합니다!\n기록: ${timerElement.innerText}초\n\n이 기록을 캡처해서 인증해주세요!`);
-                }, 500);
+                setTimeout(openSubmitModal, 500); // 게임 종료 시 입력창 열기
             }
         }
 
-        // 매칭 실패 시 (다시 뒤집기)
         function unflipCards() {
-            lockBoard = true; // 다른 카드 클릭 금지
-
+            lockBoard = true;
             setTimeout(() => {
                 firstCard.classList.remove('flip');
                 secondCard.classList.remove('flip');
                 resetBoard();
-            }, 1000); // 1초 뒤에 원상복구
+            }, 1000);
         }
 
-        // 보드 상태 초기화
         function resetBoard() {
             [hasFlippedCard, lockBoard] = [false, false];
             [firstCard, secondCard] = [null, null];
         }
 
-        // 게임 실행
-        initGame();
+        // --- 여기서부터 데이터베이스/UI 관련 기능 ---
 
+        // 1. 기록 제출창 열기
+        function openSubmitModal() {
+            document.getElementById('finalScore').innerText = currentScore.toFixed(2);
+            document.getElementById('submitModal').style.display = 'flex';
+        }
+
+        // 2. Supabase에 기록 저장 (가장 중요!)
+        async function submitScore() {
+            const name = document.getElementById('userName').value;
+            const parish = document.getElementById('userParish').value;
+            const phone = document.getElementById('userPhone').value;
+
+            if (!name || !parish || !phone) {
+                alert("모든 정보를 입력해주세요!");
+                return;
+            }
+
+            const { error } = await supabase
+                .from('records') // 아까 만든 테이블 이름
+                .insert({ name: name, parish: parish, phone: phone, score: currentScore });
+
+            if (error) {
+                alert("저장 실패: " + error.message);
+            } else {
+                alert("기록이 등록되었습니다!");
+                document.getElementById('submitModal').style.display = 'none';
+                showRanking(); // 등록 후 바로 랭킹 보여주기
+                // initGame(); // 원하면 게임 재시작
+            }
+        }
+
+        // 3. 랭킹 불러오기 (Top 10)
+        async function showRanking() {
+            document.getElementById('rankModal').style.display = 'flex';
+            const list = document.getElementById('rankList');
+            list.innerHTML = '<li>로딩 중...</li>';
+
+            // 점수(score)가 낮은 순서(asc)로 정렬해서 10개 가져오기
+            const { data, error } = await supabase
+                .from('records')
+                .select('name, parish, score')
+                .order('score', { ascending: true })
+                .limit(10);
+
+            if (error) {
+                list.innerHTML = '<li>랭킹을 불러오지 못했습니다.</li>';
+                return;
+            }
+
+            list.innerHTML = '';
+            data.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.classList.add('rank-item');
+                // 연락처는 숨기고 이름(교구) 형식으로 출력
+                li.innerHTML = `
+                    <span class="rank-name">${index + 1}위. ${item.name} (${item.parish}교구)</span>
+                    <span class="rank-score">${item.score.toFixed(2)}초</span>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function closeRankModal() {
+            document.getElementById('rankModal').style.display = 'none';
+        }
+
+        initGame();
     </script>
 </body>
 </html>
