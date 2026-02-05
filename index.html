@@ -10,7 +10,6 @@
         /* 기본 스타일 */
         body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f4f8; font-family: 'Pretendard', sans-serif; }
         
-        /* [추가됨] 타이틀 섹션 스타일 */
         .game-header { text-align: center; margin-bottom: 20px; margin-top: 20px; }
         .main-title { margin: 0; font-size: 1.8rem; font-weight: 800; color: #333; letter-spacing: -1px; }
         .sub-title { margin: 5px 0 0 0; font-size: 1.1rem; font-weight: bold; color: #764ba2; }
@@ -21,25 +20,37 @@
         .btn-rank { background: #764ba2; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
         .btn-reset { background: #999; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
         
-        .game-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 90%; max-width: 600px; perspective: 1000px; padding-bottom: 30px; } /* 하단 여백 추가 */
+        /* [핵심 변경] 4열(repeat 4)로 변경하여 카드 크기 확대 */
+        .game-board { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 여기가 5 -> 4로 변경됨 */
+            gap: 12px; /* 간격도 살짝 넓힘 */
+            width: 90%; 
+            max-width: 500px; /* 모바일 폭에 맞게 최대 너비 조정 */
+            perspective: 1000px; 
+            padding-bottom: 30px; 
+        } 
+
         .card { background-color: transparent; aspect-ratio: 3 / 4; cursor: pointer; position: relative; transform-style: preserve-3d; transition: transform 0.5s; }
         .card.flip { transform: rotateY(180deg); }
         
         .card-face { 
-            position: absolute; width: 100%; height: 100%; border-radius: 10px; 
+            position: absolute; width: 100%; height: 100%; border-radius: 12px; /* 둥글기 살짝 추가 */
             display: flex; flex-direction: column; 
             align-items: center; justify-content: center; 
-            backface-visibility: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            backface-visibility: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.15); /* 그림자 강화 */
             text-align: center; padding: 5px; box-sizing: border-box;
         }
 
-        .card-back { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; transform: rotateY(0deg); font-size: 2rem; }
+        .card-back { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; transform: rotateY(0deg); font-size: 2.2rem; }
         .card-back::after { content: "✝️"; opacity: 0.7; }
 
-        .card-front { background-color: white; transform: rotateY(180deg); border: 2px solid #764ba2; }
+        .card-front { background-color: white; transform: rotateY(180deg); border: 3px solid #764ba2; /* 테두리 조금 더 두껍게 */ }
         
-        .fruit-emoji { font-size: 2.8rem; margin-bottom: 5px; line-height: 1; }
-        .fruit-text { font-size: 0.9rem; font-weight: bold; color: #333; word-break: keep-all; }
+        /* 이모지 크기 확대 */
+        .fruit-emoji { font-size: 3.2rem; margin-bottom: 5px; line-height: 1; } 
+        /* 텍스트 크기 미세 조정 */
+        .fruit-text { font-size: 1rem; font-weight: bold; color: #333; word-break: keep-all; }
 
         /* 모달창 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
@@ -123,7 +134,7 @@
         // ==========================================
 
         const initialCardData = [
-            { id: 'title', emoji: '🍇', text: '성령의\n열매' },
+            { id: 'title', emoji: '🍇', text: '성령의\n9가지 열매' },
             { id: 'love', emoji: '❤️', text: '사랑' },
             { id: 'joy', emoji: '😊', text: '희락' },
             { id: 'peace', emoji: '🕊️', text: '화평' },
