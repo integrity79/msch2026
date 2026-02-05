@@ -32,6 +32,7 @@
         .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         
         .btn-submit { background: #d32f2f; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .btn-submit:disabled { background-color: #cccccc; /* 회색 */ cursor: not-allowed; /* 금지 커서 */ opacity: 0.7; }
         .btn-retry { background: #6c757d; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
         
         .rank-list { list-style: none; padding: 0; text-align: left; max-height: 300px; overflow-y: auto; }
@@ -267,10 +268,17 @@
             const parish = document.getElementById('userParish').value;
             const phone = document.getElementById('userPhone').value;
 
+            // 버튼 요소를 가져옵니다 (비활성화를 위해)
+            const submitBtn = document.querySelector('.btn-submit');
+
             if (!name || !parish || !phone) {
                 alert("모든 정보를 입력해주세요!");
                 return;
             }
+
+            // ★ 핵심: 누르자마자 버튼 잠그기 & 멘트 변경
+            submitBtn.disabled = true;
+            submitBtn.innerText = "저장 중... ⏳";
 
             const { error } = await supabaseClient
                 .from('records')
@@ -278,10 +286,17 @@
 
             if (error) {
                 alert("저장 실패: " + error.message);
+                // 실패했으면 다시 누를 수 있게 풀어줘야 함
+                submitBtn.disabled = false;
+                submitBtn.innerText = "🏆 이 기록으로 등록하기";
             } else {
                 alert("기록이 등록되었습니다!");
                 document.getElementById('submitModal').style.display = 'none';
                 showRanking(); 
+
+                // (선택) 다음 번을 위해 버튼 원상복구
+                submitBtn.disabled = false;
+                submitBtn.innerText = "🏆 이 기록으로 등록하기";
             }
         }
 
