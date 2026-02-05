@@ -5,15 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3월 특새 챌린지 - 카드 뒤집기</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     <style>
-        /* 기본 스타일 */
+        /* 스타일은 기존과 동일 */
         body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f4f8; font-family: 'Pretendard', sans-serif; }
-        
-        /* 상단 바 스타일 수정 (리셋 버튼 추가를 위해) */
         .info-bar { margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; color: #333; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 15px; align-items: center; }
         span#timer { color: #d32f2f; font-family: monospace; font-size: 1.5rem; }
         
-        /* 버튼 스타일들 */
         .btn-rank { background: #764ba2; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
         .btn-reset { background: #999; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
         
@@ -25,7 +24,6 @@
         .card-back::after { content: "?"; opacity: 0.5; }
         .card-front { background-color: white; transform: rotateY(180deg); border: 2px solid #764ba2; }
 
-        /* 모달창 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
         .modal { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal h2 { margin-top: 0; color: #764ba2; }
@@ -33,9 +31,8 @@
         .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
         .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         
-        /* 버튼 스타일 분리 */
         .btn-submit { background: #d32f2f; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
-        .btn-retry { background: #6c757d; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; } /* 회색 재도전 버튼 */
+        .btn-retry { background: #6c757d; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
         
         .rank-list { list-style: none; padding: 0; text-align: left; max-height: 300px; overflow-y: auto; }
         .rank-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
@@ -76,7 +73,6 @@
             </div>
             
             <button class="btn-submit" onclick="submitScore()">🏆 이 기록으로 등록하기</button>
-            
             <button class="btn-retry" onclick="retryGame()">🔄 마음에 안 들어요, 재도전!</button>
         </div>
     </div>
@@ -93,7 +89,7 @@
 
     <script>
         // ==========================================
-        // ★ Supabase 설정
+        // ★ Supabase 설정 (기존 키 사용)
         // ==========================================
         const SUPABASE_URL = 'https://bjnualkexnjtugecouiv.supabase.co'; // 프로젝트 URL 붙여넣기
         const SUPABASE_KEY = 'sb_publishable_lR1Qts8oi7ksXUhkOHo21Q_9img50Sn'; // API Key (anon) 붙여넣기
@@ -117,7 +113,6 @@
             return array;
         }
 
-        // 게임 초기화 (리셋 기능 겸용)
         function initGame() {
             board.innerHTML = ''; 
             matchCount = 0;
@@ -171,20 +166,32 @@
             isMatch ? disableCards() : unflipCards();
         }
 
+        // [핵심] 카드를 맞췄을 때 호출되는 함수
         function disableCards() {
             firstCard.removeEventListener('click', flipCard);
             secondCard.removeEventListener('click', flipCard);
+            
+            // ★ 추가된 부분: 진동 및 폭죽 효과
+            triggerMatchEffect();
+
             matchCount++;
             resetBoard();
 
             if (matchCount === 10) {
                 clearInterval(timerInterval);
-                setTimeout(openSubmitModal, 500); 
+                setTimeout(() => {
+                    // 게임 끝났을 때 대형 폭죽!
+                    triggerBigConfetti();
+                    openSubmitModal();
+                }, 500); 
             }
         }
 
         function unflipCards() {
             lockBoard = true;
+            // 틀렸을 때도 약한 진동을 줄 수 있습니다 (원하시면 주석 해제)
+            // if (navigator.vibrate) navigator.vibrate(100); 
+            
             setTimeout(() => {
                 firstCard.classList.remove('flip');
                 secondCard.classList.remove('flip');
@@ -197,19 +204,62 @@
             [firstCard, secondCard] = [null, null];
         }
 
+        // ==========================================
+        // ★ 새로 추가된 효과 함수들
+        // ==========================================
+        
+        // 1. 매칭 성공 시 효과 (진동 + 소형 폭죽)
+        function triggerMatchEffect() {
+            // 진동 (안드로이드 지원, 아이폰은 설정에 따라 다름)
+            if (navigator.vibrate) {
+                navigator.vibrate(200); // 200ms 진동
+            }
+
+            // 폭죽 효과 (화면 중앙에서 살짝 터짐)
+            confetti({
+                particleCount: 60,
+                spread: 50,
+                origin: { y: 0.6 },
+                colors: ['#764ba2', '#667eea', '#ffffff'] // 교회 느낌 색상
+            });
+        }
+
+        // 2. 게임 클리어 시 효과 (대형 폭죽)
+        function triggerBigConfetti() {
+            var duration = 2000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 }
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 }
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
         function openSubmitModal() {
             document.getElementById('finalScore').innerText = currentScore.toFixed(2);
             document.getElementById('submitModal').style.display = 'flex';
         }
 
-        // [추가된 기능] 모달 닫고 게임 재시작
         function retryGame() {
             document.getElementById('submitModal').style.display = 'none';
-            // 입력창 초기화 (선택사항)
             document.getElementById('userName').value = '';
             document.getElementById('userParish').value = '';
             document.getElementById('userPhone').value = '';
-            initGame(); // 게임 리셋
+            initGame(); 
         }
 
         async function submitScore() {
