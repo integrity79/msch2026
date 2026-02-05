@@ -1,3 +1,243 @@
-<P>
-안녕! 테스트 페이지야!^^
-<P/>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3월 특새 챌린지 - 카드 뒤집기</title>
+    <style>
+        /* 1. 기본 스타일 */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f4f8; /* 차분한 배경색 */
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        /* 2. 상단 정보창 (타이머) */
+        .info-bar {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            background: white;
+            padding: 10px 30px;
+            border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        span#timer {
+            color: #d32f2f; /* 강조색 */
+            font-family: monospace;
+        }
+
+        /* 3. 게임 보드 (5열 4행 그리드) */
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5열 */
+            gap: 10px;
+            width: 90%;
+            max-width: 600px;
+            perspective: 1000px; /* 3D 효과 원근감 */
+        }
+
+        /* 4. 카드 스타일 */
+        .card {
+            background-color: transparent;
+            aspect-ratio: 3 / 4; /* 카드 비율 */
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+        }
+
+        /* 카드가 뒤집혔을 때 */
+        .card.flip {
+            transform: rotateY(180deg);
+        }
+
+        /* 카드 앞/뒷면 공통 */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            backface-visibility: hidden; /* 뒷면 숨김 */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 카드 뒷면 (패턴) */
+        .card-back {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.2rem;
+            transform: rotateY(0deg);
+        }
+        .card-back::after {
+            content: "?"; /* 뒷면 무늬 */
+            font-weight: bold;
+            opacity: 0.5;
+        }
+
+        /* 카드 앞면 (이모지/이미지) */
+        .card-front {
+            background-color: white;
+            transform: rotateY(180deg);
+            border: 2px solid #764ba2;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="info-bar">
+        ⏱️ 소요 시간: <span id="timer">00.00</span>초
+    </div>
+
+    <div class="game-board" id="gameBoard">
+        </div>
+
+    <script>
+        // 1. 게임 설정 데이터 (10쌍의 이모지)
+        // 나중에 교회 로고나 관련 이미지로 교체 가능합니다.
+        const cardIcons = [
+            '🙏', '🙏', // 기도
+            '📖', '📖', // 성경
+            '⛪', '⛪', // 교회
+            '🕊️', '🕊️', // 평화/비둘기
+            '❤️', '❤️', // 사랑
+            '🕯️', '🕯️', // 촛불
+            '🍞', '🍞', // 떡
+            '🍷', '🍷', // 잔
+            '🎁', '🎁', // 선물
+            '👑', '👑'  // 면류관
+        ];
+
+        const board = document.getElementById('gameBoard');
+        const timerElement = document.getElementById('timer');
+        
+        let cards = []; // 생성된 카드 요소들
+        let hasFlippedCard = false;
+        let lockBoard = false; // 카드 두 장 뒤집었을 때 클릭 방지
+        let firstCard, secondCard;
+        let matchCount = 0; // 찾은 짝 개수
+        
+        // 타이머 관련 변수
+        let startTime;
+        let timerInterval;
+        let isGameStarted = false;
+
+        // 2. 카드 섞기 (Fisher-Yates Shuffle)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 3. 게임 초기화 및 보드 생성
+        function initGame() {
+            const shuffledIcons = shuffle([...cardIcons]); // 배열 복사 후 섞기
+            
+            shuffledIcons.forEach(icon => {
+                // HTML 구조 생성
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.icon = icon; // 매칭 확인용 데이터
+
+                card.innerHTML = `
+                    <div class="card-face card-front">${icon}</div>
+                    <div class="card-face card-back"></div>
+                `;
+
+                card.addEventListener('click', flipCard);
+                board.appendChild(card);
+            });
+        }
+
+        // 4. 타이머 시작 함수
+        function startTimer() {
+            if (isGameStarted) return;
+            isGameStarted = true;
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                timerElement.innerText = elapsedTime.toFixed(2);
+            }, 10);
+        }
+
+        // 5. 카드 뒤집기 로직
+        function flipCard() {
+            if (!isGameStarted) startTimer(); // 첫 클릭 시 타이머 시작
+            if (lockBoard) return;
+            if (this === firstCard) return; // 같은 카드 두 번 클릭 방지
+
+            this.classList.add('flip');
+
+            if (!hasFlippedCard) {
+                // 첫 번째 카드 클릭
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+
+            // 두 번째 카드 클릭
+            secondCard = this;
+            checkForMatch();
+        }
+
+        // 6. 매칭 확인 로직
+        function checkForMatch() {
+            let isMatch = firstCard.dataset.icon === secondCard.dataset.icon;
+
+            isMatch ? disableCards() : unflipCards();
+        }
+
+        // 매칭 성공 시
+        function disableCards() {
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+
+            matchCount++;
+            resetBoard();
+
+            // 게임 종료 체크 (10쌍 모두 찾음)
+            if (matchCount === 10) {
+                clearInterval(timerInterval);
+                setTimeout(() => {
+                    alert(`🎉 축하합니다!\n기록: ${timerElement.innerText}초\n\n이 기록을 캡처해서 인증해주세요!`);
+                }, 500);
+            }
+        }
+
+        // 매칭 실패 시 (다시 뒤집기)
+        function unflipCards() {
+            lockBoard = true; // 다른 카드 클릭 금지
+
+            setTimeout(() => {
+                firstCard.classList.remove('flip');
+                secondCard.classList.remove('flip');
+                resetBoard();
+            }, 1000); // 1초 뒤에 원상복구
+        }
+
+        // 보드 상태 초기화
+        function resetBoard() {
+            [hasFlippedCard, lockBoard] = [false, false];
+            [firstCard, secondCard] = [null, null];
+        }
+
+        // 게임 실행
+        initGame();
+
+    </script>
+</body>
+</html>
