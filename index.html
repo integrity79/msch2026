@@ -3,27 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3월 특새 챌린지 - 카드 뒤집기</title>
+    <title>3월 특새 챌린지 - 성령의 열매 찾기</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
     <style>
-        /* 스타일은 기존과 동일 */
+        /* 기본 스타일 */
         body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f4f8; font-family: 'Pretendard', sans-serif; }
+        
+        /* [추가됨] 타이틀 섹션 스타일 */
+        .game-header { text-align: center; margin-bottom: 20px; margin-top: 20px; }
+        .main-title { margin: 0; font-size: 1.8rem; font-weight: 800; color: #333; letter-spacing: -1px; }
+        .sub-title { margin: 5px 0 0 0; font-size: 1.1rem; font-weight: bold; color: #764ba2; }
+
         .info-bar { margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; color: #333; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 15px; align-items: center; }
         span#timer { color: #d32f2f; font-family: monospace; font-size: 1.5rem; }
         
         .btn-rank { background: #764ba2; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
         .btn-reset { background: #999; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
         
-        .game-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 90%; max-width: 600px; perspective: 1000px; }
+        .game-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 90%; max-width: 600px; perspective: 1000px; padding-bottom: 30px; } /* 하단 여백 추가 */
         .card { background-color: transparent; aspect-ratio: 3 / 4; cursor: pointer; position: relative; transform-style: preserve-3d; transition: transform 0.5s; }
         .card.flip { transform: rotateY(180deg); }
-        .card-face { position: absolute; width: 100%; height: 100%; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; backface-visibility: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .card-back { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; transform: rotateY(0deg); }
-        .card-back::after { content: "?"; opacity: 0.5; }
-        .card-front { background-color: white; transform: rotateY(180deg); border: 2px solid #764ba2; }
+        
+        .card-face { 
+            position: absolute; width: 100%; height: 100%; border-radius: 10px; 
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            backface-visibility: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center; padding: 5px; box-sizing: border-box;
+        }
 
+        .card-back { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; transform: rotateY(0deg); font-size: 2rem; }
+        .card-back::after { content: "✝️"; opacity: 0.7; }
+
+        .card-front { background-color: white; transform: rotateY(180deg); border: 2px solid #764ba2; }
+        
+        .fruit-emoji { font-size: 2.8rem; margin-bottom: 5px; line-height: 1; }
+        .fruit-text { font-size: 0.9rem; font-weight: bold; color: #333; word-break: keep-all; }
+
+        /* 모달창 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
         .modal { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal h2 { margin-top: 0; color: #764ba2; }
@@ -31,8 +49,9 @@
         .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
         .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         
-        .btn-submit { background: #d32f2f; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
-        .btn-submit:disabled { background-color: #cccccc; /* 회색 */ cursor: not-allowed; /* 금지 커서 */ opacity: 0.7; }
+        .btn-submit { background: #d32f2f; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; transition: background 0.3s; }
+        .btn-submit:disabled { background-color: #cccccc; cursor: not-allowed; }
+        
         .btn-retry { background: #6c757d; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
         
         .rank-list { list-style: none; padding: 0; text-align: left; max-height: 300px; overflow-y: auto; }
@@ -44,6 +63,11 @@
     </style>
 </head>
 <body>
+
+    <div class="game-header">
+        <h1 class="main-title">3월 특새 챌린지</h1>
+        <p class="sub-title">(성령의 9가지 열매)</p>
+    </div>
 
     <div class="info-bar">
         <div>⏱️ <span id="timer">00.00</span>초</div>
@@ -98,7 +122,19 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         // ==========================================
 
-        const cardIcons = ['🙏','🙏','📖','📖','⛪','⛪','🕊️','🕊️','❤️','❤️','🕯️','🕯️','🍞','🍞','🍷','🍷','🎁','🎁','👑','👑'];
+        const initialCardData = [
+            { id: 'title', emoji: '🍇', text: '성령의\n9가지 열매' },
+            { id: 'love', emoji: '❤️', text: '사랑' },
+            { id: 'joy', emoji: '😊', text: '희락' },
+            { id: 'peace', emoji: '🕊️', text: '화평' },
+            { id: 'patience', emoji: '⏳', text: '인내' },
+            { id: 'kindness', emoji: '🤝', text: '자비' },
+            { id: 'goodness', emoji: '😇', text: '양선' },
+            { id: 'faithfulness', emoji: '🙌', text: '충성' },
+            { id: 'gentleness', emoji: '🌿', text: '온유' },
+            { id: 'selfcontrol', emoji: '🧘', text: '절제' }
+        ];
+
         const board = document.getElementById('gameBoard');
         const timerElement = document.getElementById('timer');
         let cards = [], hasFlippedCard = false, lockBoard = false;
@@ -125,12 +161,21 @@
             timerElement.innerText = "00.00";
             clearInterval(timerInterval);
             
-            const shuffledIcons = shuffle([...cardIcons]);
-            shuffledIcons.forEach(icon => {
+            let gameDeck = [...initialCardData, ...initialCardData];
+            shuffle(gameDeck);
+
+            gameDeck.forEach(item => {
                 const card = document.createElement('div');
                 card.classList.add('card');
-                card.dataset.icon = icon;
-                card.innerHTML = `<div class="card-face card-front">${icon}</div><div class="card-face card-back"></div>`;
+                card.dataset.id = item.id;
+
+                card.innerHTML = `
+                    <div class="card-face card-front">
+                        <div class="fruit-emoji">${item.emoji}</div>
+                        <div class="fruit-text">${item.text.replace(/\n/g, '<br>')}</div>
+                    </div>
+                    <div class="card-face card-back"></div>
+                `;
                 card.addEventListener('click', flipCard);
                 board.appendChild(card);
             });
@@ -163,17 +208,15 @@
         }
 
         function checkForMatch() {
-            let isMatch = firstCard.dataset.icon === secondCard.dataset.icon;
+            let isMatch = firstCard.dataset.id === secondCard.dataset.id;
             isMatch ? disableCards() : unflipCards();
         }
 
-        // [핵심] 카드를 맞췄을 때 호출되는 함수
         function disableCards() {
             firstCard.removeEventListener('click', flipCard);
             secondCard.removeEventListener('click', flipCard);
             
-            // ★ 추가된 부분: 진동 및 폭죽 효과
-            triggerMatchEffect();
+            triggerMatchEffect(); 
 
             matchCount++;
             resetBoard();
@@ -181,7 +224,6 @@
             if (matchCount === 10) {
                 clearInterval(timerInterval);
                 setTimeout(() => {
-                    // 게임 끝났을 때 대형 폭죽!
                     triggerBigConfetti();
                     openSubmitModal();
                 }, 500); 
@@ -190,9 +232,6 @@
 
         function unflipCards() {
             lockBoard = true;
-            // 틀렸을 때도 약한 진동을 줄 수 있습니다 (원하시면 주석 해제)
-            // if (navigator.vibrate) navigator.vibrate(100); 
-            
             setTimeout(() => {
                 firstCard.classList.remove('flip');
                 secondCard.classList.remove('flip');
@@ -205,48 +244,18 @@
             [firstCard, secondCard] = [null, null];
         }
 
-        // ==========================================
-        // ★ 새로 추가된 효과 함수들
-        // ==========================================
-        
-        // 1. 매칭 성공 시 효과 (진동 + 소형 폭죽)
         function triggerMatchEffect() {
-            // 진동 (안드로이드 지원, 아이폰은 설정에 따라 다름)
-            if (navigator.vibrate) {
-                navigator.vibrate(200); // 200ms 진동
-            }
-
-            // 폭죽 효과 (화면 중앙에서 살짝 터짐)
-            confetti({
-                particleCount: 60,
-                spread: 50,
-                origin: { y: 0.6 },
-                colors: ['#764ba2', '#667eea', '#ffffff'] // 교회 느낌 색상
-            });
+            if (navigator.vibrate) navigator.vibrate(200);
+            confetti({ particleCount: 60, spread: 50, origin: { y: 0.6 }, colors: ['#764ba2', '#667eea', '#ffffff'] });
         }
 
-        // 2. 게임 클리어 시 효과 (대형 폭죽)
         function triggerBigConfetti() {
             var duration = 2000;
             var end = Date.now() + duration;
-
             (function frame() {
-                confetti({
-                    particleCount: 5,
-                    angle: 60,
-                    spread: 55,
-                    origin: { x: 0 }
-                });
-                confetti({
-                    particleCount: 5,
-                    angle: 120,
-                    spread: 55,
-                    origin: { x: 1 }
-                });
-
-                if (Date.now() < end) {
-                    requestAnimationFrame(frame);
-                }
+                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
+                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
+                if (Date.now() < end) requestAnimationFrame(frame);
             }());
         }
 
@@ -267,16 +276,13 @@
             const name = document.getElementById('userName').value;
             const parish = document.getElementById('userParish').value;
             const phone = document.getElementById('userPhone').value;
-
-            // 버튼 요소를 가져옵니다 (비활성화를 위해)
-            const submitBtn = document.querySelector('.btn-submit');
+            const submitBtn = document.querySelector('.btn-submit'); 
 
             if (!name || !parish || !phone) {
                 alert("모든 정보를 입력해주세요!");
                 return;
             }
 
-            // ★ 핵심: 누르자마자 버튼 잠그기 & 멘트 변경
             submitBtn.disabled = true;
             submitBtn.innerText = "저장 중... ⏳";
 
@@ -286,15 +292,12 @@
 
             if (error) {
                 alert("저장 실패: " + error.message);
-                // 실패했으면 다시 누를 수 있게 풀어줘야 함
                 submitBtn.disabled = false;
                 submitBtn.innerText = "🏆 이 기록으로 등록하기";
             } else {
                 alert("기록이 등록되었습니다!");
                 document.getElementById('submitModal').style.display = 'none';
                 showRanking(); 
-
-                // (선택) 다음 번을 위해 버튼 원상복구
                 submitBtn.disabled = false;
                 submitBtn.innerText = "🏆 이 기록으로 등록하기";
             }
