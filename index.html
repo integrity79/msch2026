@@ -81,7 +81,8 @@
         const SUPABASE_URL = 'https://bjnualkexnjtugecouiv.supabase.co'; // 프로젝트 URL 붙여넣기
         const SUPABASE_KEY = 'sb_publishable_lR1Qts8oi7ksXUhkOHo21Q_9img50Sn'; // API Key (anon) 붙여넣기
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // [수정된 부분] 변수 이름을 supabase -> supabaseClient로 변경했습니다.
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         // ==========================================
 
         // 게임 변수
@@ -195,7 +196,8 @@
                 return;
             }
 
-            const { error } = await supabase
+            // [수정된 부분] supabase -> supabaseClient 사용
+            const { error } = await supabaseClient
                 .from('records') // 아까 만든 테이블 이름
                 .insert({ name: name, parish: parish, phone: phone, score: currentScore });
 
@@ -205,7 +207,6 @@
                 alert("기록이 등록되었습니다!");
                 document.getElementById('submitModal').style.display = 'none';
                 showRanking(); // 등록 후 바로 랭킹 보여주기
-                // initGame(); // 원하면 게임 재시작
             }
         }
 
@@ -215,29 +216,33 @@
             const list = document.getElementById('rankList');
             list.innerHTML = '<li>로딩 중...</li>';
 
-            // 점수(score)가 낮은 순서(asc)로 정렬해서 10개 가져오기
-            const { data, error } = await supabase
+            // [수정된 부분] supabase -> supabaseClient 사용
+            const { data, error } = await supabaseClient
                 .from('records')
                 .select('name, parish, score')
                 .order('score', { ascending: true })
                 .limit(10);
 
             if (error) {
+                console.error(error); // 에러 확인용
                 list.innerHTML = '<li>랭킹을 불러오지 못했습니다.</li>';
                 return;
             }
 
             list.innerHTML = '';
-            data.forEach((item, index) => {
-                const li = document.createElement('li');
-                li.classList.add('rank-item');
-                // 연락처는 숨기고 이름(교구) 형식으로 출력
-                li.innerHTML = `
-                    <span class="rank-name">${index + 1}위. ${item.name} (${item.parish}교구)</span>
-                    <span class="rank-score">${item.score.toFixed(2)}초</span>
-                `;
-                list.appendChild(li);
-            });
+            if (data.length === 0) {
+                list.innerHTML = '<li>아직 등록된 기록이 없습니다. 1등을 노려보세요!</li>';
+            } else {
+                data.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.classList.add('rank-item');
+                    li.innerHTML = `
+                        <span class="rank-name">${index + 1}위. ${item.name} (${item.parish}교구)</span>
+                        <span class="rank-score">${item.score.toFixed(2)}초</span>
+                    `;
+                    list.appendChild(li);
+                });
+            }
         }
 
         function closeRankModal() {
