@@ -6,11 +6,17 @@
     <title>3월 특새 챌린지 - 카드 뒤집기</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 스타일은 기존과 동일 */
+        /* 기본 스타일 */
         body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f4f8; font-family: 'Pretendard', sans-serif; }
-        .info-bar { margin-bottom: 20px; font-size: 1.5rem; font-weight: bold; color: #333; background: white; padding: 10px 30px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 20px; align-items: center; }
-        span#timer { color: #d32f2f; font-family: monospace; }
-        .btn-rank { background: #764ba2; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
+        
+        /* 상단 바 스타일 수정 (리셋 버튼 추가를 위해) */
+        .info-bar { margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; color: #333; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 15px; align-items: center; }
+        span#timer { color: #d32f2f; font-family: monospace; font-size: 1.5rem; }
+        
+        /* 버튼 스타일들 */
+        .btn-rank { background: #764ba2; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
+        .btn-reset { background: #999; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; }
+        
         .game-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 90%; max-width: 600px; perspective: 1000px; }
         .card { background-color: transparent; aspect-ratio: 3 / 4; cursor: pointer; position: relative; transform-style: preserve-3d; transition: transform 0.5s; }
         .card.flip { transform: rotateY(180deg); }
@@ -26,7 +32,11 @@
         .input-group { margin: 15px 0; text-align: left; }
         .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
         .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        /* 버튼 스타일 분리 */
         .btn-submit { background: #d32f2f; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .btn-retry { background: #6c757d; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 1rem; cursor: pointer; margin-top: 10px; } /* 회색 재도전 버튼 */
+        
         .rank-list { list-style: none; padding: 0; text-align: left; max-height: 300px; overflow-y: auto; }
         .rank-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
         .rank-item:nth-child(1) { color: #d32f2f; font-weight: bold; }
@@ -39,14 +49,15 @@
 
     <div class="info-bar">
         <div>⏱️ <span id="timer">00.00</span>초</div>
-        <button class="btn-rank" onclick="showRanking()">🏆 순위 보기</button>
+        <button class="btn-reset" onclick="initGame()">🔄 리셋</button>
+        <button class="btn-rank" onclick="showRanking()">🏆 순위</button>
     </div>
 
     <div class="game-board" id="gameBoard"></div>
 
     <div class="modal-overlay" id="submitModal">
         <div class="modal">
-            <h2>🎉 축하합니다!</h2>
+            <h2>🎉 완주 성공!</h2>
             <p>기록: <strong id="finalScore" style="color:#d32f2f; font-size:1.5rem;">00.00</strong>초</p>
             
             <div class="input-group">
@@ -56,7 +67,7 @@
             
             <div class="input-group">
                 <label>소속/기관</label>
-                <input type="text" id="userParish" placeholder="예: 1교구, 청년부, 유치부">
+                <input type="text" id="userParish" placeholder="예: 1교구, 청년부">
             </div>
             
             <div class="input-group">
@@ -64,7 +75,9 @@
                 <input type="text" id="userPhone" placeholder="선물 증정용 확인">
             </div>
             
-            <button class="btn-submit" onclick="submitScore()">기록 등록하기</button>
+            <button class="btn-submit" onclick="submitScore()">🏆 이 기록으로 등록하기</button>
+            
+            <button class="btn-retry" onclick="retryGame()">🔄 마음에 안 들어요, 재도전!</button>
         </div>
     </div>
 
@@ -80,7 +93,7 @@
 
     <script>
         // ==========================================
-        // ★ Supabase 설정 (기존 키를 넣어주세요)
+        // ★ Supabase 설정
         // ==========================================
         const SUPABASE_URL = 'https://bjnualkexnjtugecouiv.supabase.co'; // 프로젝트 URL 붙여넣기
         const SUPABASE_KEY = 'sb_publishable_lR1Qts8oi7ksXUhkOHo21Q_9img50Sn'; // API Key (anon) 붙여넣기
@@ -104,10 +117,15 @@
             return array;
         }
 
+        // 게임 초기화 (리셋 기능 겸용)
         function initGame() {
             board.innerHTML = ''; 
             matchCount = 0;
             isGameStarted = false;
+            hasFlippedCard = false;
+            lockBoard = false;
+            firstCard = null;
+            secondCard = null;
             timerElement.innerText = "00.00";
             clearInterval(timerInterval);
             
@@ -184,6 +202,16 @@
             document.getElementById('submitModal').style.display = 'flex';
         }
 
+        // [추가된 기능] 모달 닫고 게임 재시작
+        function retryGame() {
+            document.getElementById('submitModal').style.display = 'none';
+            // 입력창 초기화 (선택사항)
+            document.getElementById('userName').value = '';
+            document.getElementById('userParish').value = '';
+            document.getElementById('userPhone').value = '';
+            initGame(); // 게임 리셋
+        }
+
         async function submitScore() {
             const name = document.getElementById('userName').value;
             const parish = document.getElementById('userParish').value;
@@ -231,8 +259,6 @@
                 data.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.classList.add('rank-item');
-                    
-                    // [수정 포인트 2] "교구" 글자 삭제 (사용자가 입력한 그대로 보여주기)
                     li.innerHTML = `
                         <span class="rank-name">${index + 1}위. ${item.name} (${item.parish})</span>
                         <span class="rank-score">${item.score.toFixed(2)}초</span>
